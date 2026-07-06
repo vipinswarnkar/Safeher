@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import app from "./app.js";
-import connectDb from "./database/db.js"
+
 import connectDB from "./database/db.js";
 
 //load env variables 

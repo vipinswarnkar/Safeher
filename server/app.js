@@ -1,13 +1,21 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import authRoutes from "./routes/auth.routes.js";
 
 const app = express();
 
 // Middleware
-app.use(cors()); // allow React frontend to communicate with the backend.
-app.use(express.json());
+app.use(cors());                 // allow React frontend to communicate with the backend.
+app.use(express.json());        // Allows Express to understand JSON( front end sends json file for eg { "email":"", "password": "12345"})
+
 app.use(morgan("dev"));
+
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+app.use("/api/auth", authRoutes);
 
 // Test Route
 app.get("/", (req, res) => {
