@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import authRoutes from "./routes/auth.routes.js";
+import contactRoutes from "./routes/contact.route.js";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use("/api/auth", authRoutes);
+app.use("/api/contacts", contactRoutes);
 
 // Test Route
 app.get("/", (req, res) => {
