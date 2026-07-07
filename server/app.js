@@ -4,6 +4,7 @@ import morgan from "morgan";
 import authRoutes from "./routes/auth.routes.js";
 import contactRoutes from "./routes/contact.route.js";
 import journeyRoutes from "./routes/journey.route.js";
+import sosRoutes from "./routes/sos.routes.js";
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/journey", journeyRoutes);
+app.use("/api/sos", sosRoutes);
 
 // Test Route
 app.get("/", (req, res) => {
