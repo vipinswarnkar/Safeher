@@ -7,6 +7,7 @@ import journeyRoutes from "./routes/journey.route.js";
 import sosRoutes from "./routes/sos.routes.js";
 import locationRoutes from "./routes/location.route.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
+import userRoutes from "./routes/user.routes.js";
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use("/api/journey", journeyRoutes);
 app.use("/api/sos", sosRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/user", userRoutes);
 
 // Test Route
 app.get("/", (req, res) => {

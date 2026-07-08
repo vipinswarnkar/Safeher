@@ -1,6 +1,7 @@
 import SOS from "../models/sos.js";
 import Journey from "../models/journey.js";
 import Contact from "../models/contact.js";
+import { sendSOSNotification } from "../services/notification.service.js";
 
 // Trigger SOS
 export const triggerSOS = async (req, res) => {
@@ -14,6 +15,17 @@ export const triggerSOS = async (req, res) => {
         message: "Latitude and Longitude are required",
       });
     }
+
+    await sendSOSNotification({
+    contacts,
+    user: req.user,
+    location: {
+        latitude,
+        longitude,
+        mapUrl
+    },
+    journey: activeJourney,
+});
 
     // Find active journey
     const activeJourney = await Journey.findOne({
