@@ -90,3 +90,46 @@ export const getSOSHistory = async (req, res) => {
     });
   }
 };
+
+// Resolve SOS
+export const resolveSOS = async (req, res) => {
+  try {
+
+    const { id } = req.params;
+
+    const sos = await SOS.findOneAndUpdate(
+      {
+        _id: id,
+        user: req.user._id,
+      },
+      {
+        status: "resolved",
+      },
+      {
+        new: true,
+      }
+    );
+
+    if (!sos) {
+      return res.status(404).json({
+        success: false,
+        message: "SOS not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "SOS resolved successfully",
+      sos,
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
