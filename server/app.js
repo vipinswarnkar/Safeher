@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.routes.js";
 import contactRoutes from "./routes/contact.route.js";
 import journeyRoutes from "./routes/journey.route.js";
 import sosRoutes from "./routes/sos.routes.js";
+import locationRoutes from "./routes/location.route.js";
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/journey", journeyRoutes);
 app.use("/api/sos", sosRoutes);
+app.use("/api/location", locationRoutes);
 
 // Test Route
 app.get("/", (req, res) => {
