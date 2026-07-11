@@ -116,9 +116,12 @@ function Login() {
           </div>
 
           <button
-            className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-semibold transition"
+          type="submit"
+          disabled={loading}
+          className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white py-3 rounded-xl font-semibold transition"
           >
-            Login
+          {loading ? "Logging in..." : "Login"} 
+          {/* loading se login ka buton logging in ho jayega so that wapas click karke bahut request na bheje  */}
           </button>
 
         </form>
