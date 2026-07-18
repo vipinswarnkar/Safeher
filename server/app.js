@@ -12,7 +12,12 @@ import userRoutes from "./routes/user.routes.js";
 const app = express();
 
 // Middleware
-app.use(cors());                 // allow React frontend to communicate with the backend.
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);                // allow React frontend to communicate with the backend.
 app.use(express.json());        // Allows Express to understand JSON( front end sends json file for eg { "email":"", "password": "12345"})
 
 app.use(morgan("dev"));
