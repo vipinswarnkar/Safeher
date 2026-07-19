@@ -11,7 +11,7 @@ const locationSchema = new mongoose.Schema(
     journey: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Journey",
-      required: true,
+      
     },
 
     latitude: {

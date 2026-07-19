@@ -6,7 +6,7 @@ export const updateLocation = async (req, res) => {
   try {
     const { latitude, longitude, accuracy, speed } = req.body;
 
-    if (!latitude || !longitude) {
+   if (latitude == null || longitude == null) {
       return res.status(400).json({
         success: false,
         message: "Latitude and Longitude are required",
