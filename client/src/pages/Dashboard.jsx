@@ -14,25 +14,28 @@ function Dashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Fetch dashboard data from backend
+  const fetchDashboard = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await api.get("/dashboard", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setDashboard(response.data.dashboard);
+
+    } catch (error) {
+      console.error("Dashboard Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Runs only once when page loads
   useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const token = localStorage.getItem("token");
-
-        const response = await api.get("/dashboard", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        setDashboard(response.data.dashboard);
-      } catch (error) {
-        console.error("Dashboard Error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDashboard();
   }, []);
 
@@ -54,6 +57,7 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-100">
+
       <div className="max-w-md mx-auto px-5 py-6 pb-28 space-y-6">
 
         <DashboardHeader user={dashboard.user} />
@@ -64,7 +68,10 @@ function Dashboard() {
 
         <MapCard location={dashboard.latestLocation} />
 
-        <StartJourneyCard activeJourney={dashboard.activeJourney} />
+        <StartJourneyCard
+          activeJourney={dashboard.activeJourney}
+          onJourneyStarted={fetchDashboard}
+        />
 
         <SOSCard />
 
@@ -73,6 +80,7 @@ function Dashboard() {
       </div>
 
       <BottomNav />
+
     </div>
   );
 }

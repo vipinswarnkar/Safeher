@@ -1,6 +1,60 @@
 import { HiOutlineMapPin } from "react-icons/hi2";
+import { useState } from "react";
+import api from "../services/api";
 
-function StartJourneyCard() {
+function StartJourneyCard(activeJourney, onJourneyStarted) {
+
+  const [destination, setDestination] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleStartJourney = async () => {
+
+    if (!destination.trim()) {
+        alert("Please enter destination");
+        return;
+    }
+
+    try {
+
+        setLoading(true);
+
+        const token = localStorage.getItem("token");
+
+        const response = await api.post(
+            "/journey/start",
+            {
+                source: "Current Location",
+                destination: destination,
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+
+        console.log(response.data);
+
+        setDestination("");
+
+        if (onJourneyStarted) {
+            onJourneyStarted();
+        }
+
+        } catch (error) {
+
+            console.log(error.response?.data || error);
+
+            alert(error.response?.data?.message || "Unable to start journey");
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
+};
+
   return (
 
     <div className="bg-white rounded-3xl shadow-lg p-5 space-y-4">
@@ -33,6 +87,8 @@ function StartJourneyCard() {
           <input
             type="text"
             placeholder="Where are you going?"
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
             className="
             w-full
             rounded-2xl
@@ -52,6 +108,9 @@ function StartJourneyCard() {
       </div>
 
       <button
+        type="button"
+        onClick={handleStartJourney}
+        disabled={loading}
         className="
         w-full
         bg-rose-600
@@ -63,7 +122,7 @@ function StartJourneyCard() {
         transition
         "
       >
-        Start Journey
+        {loading ? "Starting..." : "Start Journey"}
       </button>
 
     </div>

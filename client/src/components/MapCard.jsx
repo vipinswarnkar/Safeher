@@ -11,6 +11,8 @@ import L from "leaflet";
 
 import "leaflet/dist/leaflet.css";
 
+import api from "../services/api";
+
 delete L.Icon.Default.prototype._getIconUrl;
 
 L.Icon.Default.mergeOptions({
@@ -39,7 +41,7 @@ function MapCard() {
 
   const watchId = navigator.geolocation.watchPosition(
 
-    (location) => {
+    async (location) => {
 
       const latitude = location.coords.latitude;
       const longitude = location.coords.longitude;
@@ -49,6 +51,30 @@ function MapCard() {
       console.log("Latitude:", latitude);
       console.log("Longitude:", longitude);
 
+      try {
+
+          const token = localStorage.getItem("token");
+
+          await api.post(
+              "/location/update",
+              {
+                  latitude,
+                  longitude,
+                  accuracy: location.coords.accuracy,
+                  speed: location.coords.speed,
+              },
+              {
+                  headers: {
+                      Authorization: `Bearer ${token}`,
+                  },
+              }
+          );
+
+      } catch (error) {
+
+          console.log(error);
+
+      }
     },
 
     (error) => {

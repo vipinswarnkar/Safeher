@@ -1,6 +1,9 @@
 import { HiOutlineMagnifyingGlass } from "react-icons/hi2";
+import { useState } from "react";
 
 function SearchBar() {
+
+  const [search, setSearch] = useState("");
 
   return (
 
@@ -13,6 +16,8 @@ function SearchBar() {
       <input
         type="text"
         placeholder="Search destination..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
         className="
         w-full
         rounded-2xl

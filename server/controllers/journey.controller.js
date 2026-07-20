@@ -28,6 +28,7 @@ export const startJourney = async (req, res) => {
 
     // Create new journey
     const journey = await Journey.create({
+      
       user: req.user._id,
       source,
       destination,

@@ -4,6 +4,7 @@ import Journey from "../models/journey.js";
 // Update Live Location
 export const updateLocation = async (req, res) => {
   try {
+    console.log(req.body);
     const { latitude, longitude, accuracy, speed } = req.body;
 
    if (latitude == null || longitude == null) {
@@ -14,22 +15,15 @@ export const updateLocation = async (req, res) => {
     }
 
     const activeJourney = await Journey.findOne({
-      user: req.user._id,
-      status: "active",
+    user: req.user._id,
+    status: "active",
     });
-
-    if (!activeJourney) {
-      return res.status(404).json({
-        success: false,
-        message: "No active journey found",
-      });
-    }
 
     const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
 
     const location = await Location.create({
       user: req.user._id,
-      journey: activeJourney._id,
+      journey: activeJourney ? activeJourney._id : null,
       latitude,
       longitude,
       accuracy,
