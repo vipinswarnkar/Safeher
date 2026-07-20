@@ -1,18 +1,68 @@
 import { HiOutlineMapPin } from "react-icons/hi2";
-import { useState } from "react";
+import { useState , useEffect} from "react";
 import api from "../services/api";
 
-function StartJourneyCard(activeJourney, onJourneyStarted) {
+function StartJourneyCard({activeJourney, onJourneyStarted}) {
 
   const [destination, setDestination] = useState("");
+
+  const [selectedPlace, setSelectedPlace] = useState(null);
+
   const [loading, setLoading] = useState(false);
+
+  const [suggestions, setSuggestions] = useState([]);
+
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+
+    if (destination.length < 3) {
+
+        setSuggestions([]);
+
+        return;
+
+    }
+
+    const timer = setTimeout(async () => {
+
+        try {
+
+            setSearching(true);
+
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${destination}&limit=5`
+            );
+
+            const data = await response.json();
+
+            setSuggestions(data);
+
+        } catch (error) {
+
+            console.log(error);
+
+        } finally {
+
+            setSearching(false);
+
+        }
+
+    }, 400);
+
+    return () => clearTimeout(timer);
+
+}, [destination]);
 
   const handleStartJourney = async () => {
 
-    if (!destination.trim()) {
-        alert("Please enter destination");
-        return;
-    }
+   if (!selectedPlace) {
+
+    alert("Please select a destination from the suggestions.");
+
+    return;
+
+}
 
     try {
 
@@ -54,6 +104,72 @@ function StartJourneyCard(activeJourney, onJourneyStarted) {
         }
 
 };
+
+const handleEndJourney = async () => {
+  try {
+
+    setLoading(true);
+
+    const token = localStorage.getItem("token");
+
+    await api.patch(
+      `/journey/end/${activeJourney._id}`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (onJourneyStarted) {
+      onJourneyStarted();
+    }
+
+  } catch (error) {
+
+    console.log(error.response?.data || error);
+
+    alert(error.response?.data?.message || "Unable to end journey");
+
+  } finally {
+
+    setLoading(false);
+
+  }
+};
+
+if (activeJourney) {
+  return (
+    <div className="bg-white rounded-3xl shadow-lg p-5 space-y-4">
+
+      <p className="text-green-600 font-semibold">
+        Journey Active
+      </p>
+
+      <h2 className="text-xl font-bold">
+        {activeJourney.destination}
+      </h2>
+
+      <p className="text-sm text-slate-500">
+        Started at{" "}
+        {new Date(activeJourney.startedAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </p>
+
+      <button
+        onClick={handleEndJourney}
+        disabled={loading}
+        className="w-full bg-red-500 text-white py-3 rounded-2xl font-semibold"
+    >
+        {loading ? "Ending..." : "End Journey"}
+      </button>
+
+    </div>
+  );
+}
 
   return (
 
@@ -103,6 +219,43 @@ function StartJourneyCard(activeJourney, onJourneyStarted) {
             "
           />
 
+          {searching && (
+            <p className="text-xs text-slate-500 mt-2">
+                Searching...
+            </p>
+        )}
+
+        {suggestions.length > 0 && (
+            <div className="mt-2 bg-white border rounded-2xl shadow max-h-60 overflow-y-auto">
+
+                {suggestions.map((place) => (
+
+                    <button
+                        key={place.place_id}
+                        type="button"
+                      onClick={() => {
+
+                          console.log("Clicked Place");
+
+                          console.log(place);
+
+                          setDestination(place.display_name);
+
+                          setSelectedPlace(place);
+
+                          setSuggestions([]);
+
+                      }}
+                        className="w-full text-left px-4 py-3 hover:bg-slate-100 border-b last:border-none"
+                    >
+                        📍 {place.display_name}
+                    </button>
+
+                ))}
+
+            </div>
+        )}
+
         </div>
 
       </div>
@@ -129,5 +282,7 @@ function StartJourneyCard(activeJourney, onJourneyStarted) {
 
   );
 }
+
+
 
 export default StartJourneyCard;

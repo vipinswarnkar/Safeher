@@ -52,7 +52,7 @@ toast.error(
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-10">
 
         <h1 className="text-3xl font-bold text-slate-900">
-          SafeHer
+          Trackhersafe
         </h1>
 
         <p className="text-slate-500 mt-2">
