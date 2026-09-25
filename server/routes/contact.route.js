@@ -3,20 +3,17 @@ import {
   addContact,
   getContacts,
   updateContact,
-  deleteContact
+  deleteContact,
 } from "../controllers/contact.controller.js";
 import protect from "../middleware/auth.middleware.js";
+import validate from "../middleware/validate.middleware.js";
+import { contactSchema, contactUpdateSchema, objectIdParam } from "../validators/schemas.js";
 
 const router = express.Router();
 
-// Add Emergency Contact
-router.post("/", protect, addContact);
-
-// Get All Emergency Contacts
+router.post("/", protect, validate({ body: contactSchema }), addContact);
 router.get("/", protect, getContacts);
-
-router.put("/:id", protect, updateContact)
-
-router.delete("/:id", protect, deleteContact)
+router.put("/:id", protect, validate({ params: objectIdParam, body: contactUpdateSchema }), updateContact);
+router.delete("/:id", protect, validate({ params: objectIdParam }), deleteContact);
 
 export default router;

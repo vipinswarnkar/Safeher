@@ -3,6 +3,7 @@ import Journey from "../models/journey.js";
 import Contact from "../models/contact.js";
 import SOS from "../models/sos.js";
 import Location from "../models/location.js";
+import { trackingUrl } from "../utils/tracking.js";
 
 export const getDashboard = async (req, res) => {
   try {
@@ -39,7 +40,9 @@ export const getDashboard = async (req, res) => {
       success: true,
       dashboard: {
         user,
-        activeJourney,
+        activeJourney: activeJourney
+          ? { ...activeJourney.toObject(), trackingUrl: trackingUrl(activeJourney.shareToken) }
+          : null,
         latestLocation,
         contactsCount,
         totalJourneys,

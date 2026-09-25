@@ -1,38 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  useMap,
-} from "react-leaflet";
-
-import L from "leaflet";
-
-import "leaflet/dist/leaflet.css";
+import { useCallback, useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 
 import api from "../services/api";
-
-delete L.Icon.Default.prototype._getIconUrl;
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
-
-function ChangeMapView({ center }) {
-  const map = useMap();
-
-  useEffect(() => {
-    map.setView(center, 16);
-  }, [center, map]);
-
-  return null;
-}
+import SafeMap from "./SafeMap";
+import SafetyCheckModal from "./SafetyCheckModal";
+import SOSShareSheet from "./SOSShareSheet";
+import useSOS from "../hooks/useSOS";
+import { distanceMeters } from "../utils/location";
 
 // When to send a location update to the server:
 // - the user moved at least MIN_DISTANCE_METERS (but not more than once per MIN_GAP_MS), or
@@ -42,125 +16,121 @@ const MIN_GAP_MS = 5000;
 const HEARTBEAT_MS = 60000;
 const MIN_DISTANCE_METERS = 30;
 
-// Distance between two lat/lng points in meters (haversine formula)
-function distanceInMeters([lat1, lon1], [lat2, lon2]) {
-  const R = 6371000;
-  const toRad = (deg) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function MapCard({ location }) {
-  // Start from the last saved location if we have one, else Mumbai
+/*
+ * Live map that:
+ *  - follows the user's GPS and reports it to the server (for tracking + smart alerts)
+ *  - shows "Are you OK?" when the server raises a smart alert, with auto-SOS
+ *  - passes any other props (routes, places, reports...) through to SafeMap
+ */
+function MapCard({ location, onPositionChange, onArrived, ...mapProps }) {
   const [position, setPosition] = useState(
-    location ? [location.latitude, location.longitude] : [19.076, 72.8777]
+    location ? { latitude: location.latitude, longitude: location.longitude } : null
   );
+  const [pendingAlert, setPendingAlert] = useState(null);
 
   const lastSent = useRef({ time: 0, position: null });
+  const arrivedNotified = useRef(null);
 
+  // Keep the latest callbacks in refs so the GPS watcher is set up only once
+  const callbacks = useRef({ onPositionChange, onArrived });
   useEffect(() => {
+    callbacks.current = { onPositionChange, onArrived };
+  });
 
-  const watchId = navigator.geolocation.watchPosition(
+  const { sendSOS, lastResult, clearResult } = useSOS({ lastKnownLocation: position });
 
-    async (location) => {
+  // Server response to a location update: act on smart alerts
+  const handleServerResult = useCallback((data) => {
+    if (!data?.journeyId) return;
 
-      const latitude = location.coords.latitude;
-      const longitude = location.coords.longitude;
-
-      setPosition([latitude, longitude]);
-
-      const now = Date.now();
-      const previous = lastSent.current;
-      const elapsed = now - previous.time;
-      const moved =
-        !previous.position ||
-        distanceInMeters(previous.position, [latitude, longitude]) >=
-          MIN_DISTANCE_METERS;
-
-      const shouldSend =
-        (moved && elapsed >= MIN_GAP_MS) || elapsed >= HEARTBEAT_MS;
-
-      if (!shouldSend) {
-        return;
+    for (const alert of data.alerts || []) {
+      if (alert.requiresCheckIn) {
+        setPendingAlert((current) => current || { ...alert, journeyId: data.journeyId });
+      } else {
+        toast(alert.message, { icon: "⚠️", duration: 7000 });
       }
-
-      lastSent.current = { time: now, position: [latitude, longitude] };
-
-      try {
-
-          await api.post(
-              "/location/update",
-              {
-                  latitude,
-                  longitude,
-                  accuracy: location.coords.accuracy,
-                  speed: location.coords.speed,
-              }
-          );
-
-      } catch (error) {
-
-          console.log(error);
-
-      }
-    },
-
-    (error) => {
-
-      console.log(error);
-
-    },
-
-    {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 10000,
     }
 
-  );
+    if (data.arrived && arrivedNotified.current !== data.journeyId) {
+      arrivedNotified.current = data.journeyId;
+      toast.success("Looks like you've arrived! Remember to end your journey.", { duration: 7000 });
+      callbacks.current.onArrived?.();
+    }
+  }, []);
 
-  return () => {
-    navigator.geolocation.clearWatch(watchId);
+  useEffect(() => {
+    if (!navigator.geolocation) return undefined;
+
+    const watchId = navigator.geolocation.watchPosition(
+      async (gps) => {
+        const current = { latitude: gps.coords.latitude, longitude: gps.coords.longitude };
+        setPosition(current);
+        callbacks.current.onPositionChange?.(current);
+
+        const now = Date.now();
+        const previous = lastSent.current;
+        const elapsed = now - previous.time;
+        const moved =
+          !previous.position || distanceMeters(previous.position, current) >= MIN_DISTANCE_METERS;
+
+        if (!((moved && elapsed >= MIN_GAP_MS) || elapsed >= HEARTBEAT_MS)) return;
+
+        lastSent.current = { time: now, position: current };
+
+        try {
+          const { data } = await api.post("/location/update", {
+            ...current,
+            accuracy: gps.coords.accuracy,
+            speed: gps.coords.speed,
+          });
+          handleServerResult(data);
+        } catch (error) {
+          console.log("Location update failed:", error.message);
+        }
+      },
+      (error) => console.log("GPS error:", error.message),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [handleServerResult]);
+
+  const handleOk = async () => {
+    const alert = pendingAlert;
+    setPendingAlert(null);
+    try {
+      await api.post(`/journey/${alert.journeyId}/check-in`, { alertType: alert.type });
+      toast.success("Glad you're safe");
+    } catch {
+      // Not critical: the alert was already dismissed
+    }
   };
 
-}, []);
+  const handleSOS = async (automatic) => {
+    setPendingAlert(null);
+    if (automatic) toast.error("No response. Sending SOS to your contacts.", { duration: 6000 });
+    await sendSOS({
+      message: automatic
+        ? "Automatic SOS: I didn't respond to a safety check."
+        : "Emergency! I need help.",
+    });
+  };
 
   return (
+    <div className="space-y-4">
+      <SafeMap position={position} {...mapProps} />
 
-    <div className="rounded-3xl overflow-hidden shadow-lg">
+      {lastResult && <SOSShareSheet result={lastResult} onClose={clearResult} />}
 
-      <MapContainer
-        center={position}
-        zoom={16}
-        style={{
-          height: "350px",
-          width: "100%",
-        }}
-      >
-
-        <ChangeMapView center={position} />
-
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      {pendingAlert && (
+        <SafetyCheckModal
+          key={`${pendingAlert.type}-${pendingAlert.journeyId}`}
+          alert={pendingAlert}
+          onOk={handleOk}
+          onSOS={handleSOS}
         />
-
-        <Marker position={position}>
-          <Popup>
-
-            You are here
-
-          </Popup>
-        </Marker>
-
-      </MapContainer>
-
+      )}
     </div>
-
   );
 }
 

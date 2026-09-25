@@ -1,148 +1,77 @@
 import Journey from "../models/journey.js";
+import ApiError from "../utils/ApiError.js";
+import { sendSuccess } from "../utils/ApiResponse.js";
+import { createShareToken, trackingUrl } from "../utils/tracking.js";
+import { emitToTrackers } from "../socket.js";
 
-// Start a Journey
+// Journey as sent to the owner's app (adds the tracking link)
+const withLink = (journey) => {
+  const obj = journey.toObject ? journey.toObject() : journey;
+  return { ...obj, trackingUrl: trackingUrl(obj.shareToken) };
+};
+
+// POST /api/journey/start
 export const startJourney = async (req, res) => {
-  try {
-    const { source, destination, sourceLocation, destinationLocation } =
-      req.body;
+  const activeJourney = await Journey.findOne({ user: req.user._id, status: "active" });
+  if (activeJourney) throw ApiError.badRequest("You already have an active journey");
 
-    // Validation
-    if (!source || !destination) {
-      return res.status(400).json({
-        success: false,
-        message: "Source and destination are required",
-      });
-    }
+  const journey = await Journey.create({
+    ...req.body, // already validated and stripped by zod
+    user: req.user._id,
+    shareToken: createShareToken(),
+  });
 
-    // Check if user already has an active journey
-    const activeJourney = await Journey.findOne({
-      user: req.user._id,
-      status: "active",
-    });
-
-    if (activeJourney) {
-      return res.status(400).json({
-        success: false,
-        message: "You already have an active journey",
-      });
-    }
-
-    // Create new journey
-    const journey = await Journey.create({
-      
-      user: req.user._id,
-      source,
-      destination,
-      sourceLocation,
-      destinationLocation,
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Journey started successfully",
-      journey,
-    });
-
-  } catch (error) {
-    console.error("Start Journey Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
+  return sendSuccess(res, { message: "Journey started successfully", journey: withLink(journey) }, 201);
 };
-// Get Active Journey
+
+// GET /api/journey/active
 export const getActiveJourney = async (req, res) => {
-  try {
-    const journey = await Journey.findOne({
-      user: req.user._id,
-      status: "active",
-    });
-
-    if (!journey) {
-      return res.status(404).json({
-        success: false,
-        message: "No active journey found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      journey,
-    });
-
-  } catch (error) {
-    console.error("Get Active Journey Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
+  const journey = await Journey.findOne({ user: req.user._id, status: "active" });
+  if (!journey) throw ApiError.notFound("No active journey found");
+  return sendSuccess(res, { journey: withLink(journey) });
 };
-// End Journey
+
+// PATCH /api/journey/end/:id
 export const endJourney = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const journey = await Journey.findOneAndUpdate(
+    { _id: req.validParams.id, user: req.user._id, status: "active" },
+    { status: "completed", endedAt: new Date() },
+    { returnDocument: "after" }
+  );
 
-    const journey = await Journey.findOneAndUpdate(
-      {
-        _id: id,
-        user: req.user._id,
-        status: "active",
-      },
-      {
-        status: "completed",
-        endedAt: new Date(),
-      },
-      {
-        returnDocument: "after",
-      }
-    );
+  if (!journey) throw ApiError.notFound("Active journey not found");
 
-    if (!journey) {
-      return res.status(404).json({
-        success: false,
-        message: "Active journey not found",
-      });
-    }
+  emitToTrackers(journey.shareToken, "track:status", { status: "completed", endedAt: journey.endedAt });
 
-    return res.status(200).json({
-      success: true,
-      message: "Journey ended successfully",
-      journey,
-    });
-
-  } catch (error) {
-    console.error("End Journey Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
-  }
+  return sendSuccess(res, { message: "Journey ended successfully", journey: withLink(journey) });
 };
 
-// Get Journey History
-export const getJourneyHistory = async (req, res) => {
-  try {
-    const journeys = await Journey.find({
-      user: req.user._id,
-    }).sort({ createdAt: -1 });
+// POST /api/journey/:id/check-in   ("I'm OK" reply to a smart alert)
+export const checkIn = async (req, res) => {
+  const now = new Date();
+  const journey = await Journey.findOne({ _id: req.validParams.id, user: req.user._id, status: "active" });
+  if (!journey) throw ApiError.notFound("Active journey not found");
 
-    return res.status(200).json({
-      success: true,
-      count: journeys.length,
-      journeys,
-    });
-
-  } catch (error) {
-    console.error("Journey History Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
+  // Mark matching unanswered alerts as answered
+  for (const alert of journey.alerts) {
+    if (!alert.acknowledgedAt && (req.body.alertType === "manual" || alert.type === req.body.alertType)) {
+      alert.acknowledgedAt = now;
+    }
   }
+  journey.lastCheckInAt = now;
+  await journey.save();
+
+  emitToTrackers(journey.shareToken, "track:checkin", { at: now });
+
+  return sendSuccess(res, { message: "Glad you're safe", lastCheckInAt: now });
+};
+
+// GET /api/journey/history
+export const getJourneyHistory = async (req, res) => {
+  const journeys = await Journey.find({ user: req.user._id })
+    .select("-plannedRoute -shareToken")
+    .sort({ createdAt: -1 })
+    .limit(200);
+
+  return sendSuccess(res, { count: journeys.length, journeys });
 };

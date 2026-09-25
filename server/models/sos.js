@@ -33,6 +33,19 @@ const sosSchema = new mongoose.Schema(
       default: "Emergency! I need help.",
     },
 
+    // Delivery result for each contact and channel (sms / whatsapp)
+    notifications: [
+      {
+        _id: false,
+        contactName: String,
+        phone: String,
+        channel: String,
+        status: { type: String, enum: ["sent", "failed", "logged"] },
+        providerId: String,
+        error: String,
+      },
+    ],
+
     // SOS Status
     status: {
       type: String,

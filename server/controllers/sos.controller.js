@@ -1,7 +1,12 @@
 import SOS from "../models/sos.js";
 import Journey from "../models/journey.js";
 import Contact from "../models/contact.js";
-import { sendSOSNotification } from "../services/notification.service.js";
+import {
+  sendSOSNotification,
+  sendSafeNotification,
+  buildSOSMessage,
+} from "../services/notification.service.js";
+import { trackingUrl } from "../utils/tracking.js";
 
 // Trigger SOS
 export const triggerSOS = async (req, res) => {
@@ -48,21 +53,43 @@ export const triggerSOS = async (req, res) => {
 
     // Notify contacts only after the SOS is saved, so a notification
     // failure never loses the alert record.
+    let notifications = [];
     try {
-      await sendSOSNotification({
+      notifications = await sendSOSNotification({
         contacts,
         user: req.user,
         location: { latitude, longitude, mapUrl },
         journey: activeJourney,
       });
+      sos.notifications = notifications;
+      await sos.save();
     } catch (notifyError) {
       console.error("SOS Notification Error:", notifyError);
     }
+
+    // A contact counts as reached if at least one channel worked
+    const reached = new Set(
+      notifications
+        .filter((n) => n.status !== "failed")
+        .map((n) => n.contactName)
+    );
 
     return res.status(201).json({
       success: true,
       message: "SOS triggered successfully",
       emergencyContacts: contacts.length,
+      contactsReached: reached.size,
+      delivery: notifications.length > 0 && notifications.every((n) => n.status === "logged")
+        ? "console"
+        : "live",
+      // Lets the app open WhatsApp / SMS on her own phone as a free backup channel
+      shareMessage: buildSOSMessage({
+        user: req.user,
+        location: { mapUrl },
+        journey: activeJourney,
+      }),
+      contacts: contacts.map((c) => ({ name: c.name, phone: c.phone })),
+      trackingUrl: activeJourney ? trackingUrl(activeJourney.shareToken) : null,
       sos,
     });
 
@@ -111,6 +138,7 @@ export const resolveSOS = async (req, res) => {
       {
         _id: id,
         user: req.user._id,
+        status: "active",
       },
       {
         status: "resolved",
@@ -123,8 +151,18 @@ export const resolveSOS = async (req, res) => {
     if (!sos) {
       return res.status(404).json({
         success: false,
-        message: "SOS not found",
+        message: "Active SOS not found",
       });
+    }
+
+    // Let everyone who got the alert know she is safe
+    try {
+      const contacts = await Contact.find({ user: req.user._id });
+      if (contacts.length > 0) {
+        await sendSafeNotification({ contacts, user: req.user });
+      }
+    } catch (notifyError) {
+      console.error("Safe Notification Error:", notifyError);
     }
 
     return res.status(200).json({
