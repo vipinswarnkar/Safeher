@@ -17,13 +17,7 @@ function Dashboard() {
   // Fetch dashboard data from backend
   const fetchDashboard = async () => {
     try {
-      const token = localStorage.getItem("token");
-
-      const response = await api.get("/dashboard", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.get("/dashboard");
 
       setDashboard(response.data.dashboard);
 
@@ -36,7 +30,22 @@ function Dashboard() {
 
   // Runs only once when page loads
   useEffect(() => {
-    fetchDashboard();
+    let cancelled = false;
+
+    api
+      .get("/dashboard")
+      .then((response) => {
+        if (!cancelled) setDashboard(response.data.dashboard);
+      })
+      .catch((error) => console.error("Dashboard Error:", error))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    // Ignore the response if the user left the page before it arrived
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) {
@@ -73,7 +82,10 @@ function Dashboard() {
           onJourneyStarted={fetchDashboard}
         />
 
-        <SOSCard />
+        <SOSCard
+          lastKnownLocation={dashboard.latestLocation}
+          onSOSSent={fetchDashboard}
+        />
 
         <QuickActions />
 

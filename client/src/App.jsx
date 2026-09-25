@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -11,6 +11,15 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 import { Toaster } from "react-hot-toast";
 
+// Pages that need the user to be logged in
+const protectedPages = [
+  { path: "/dashboard", element: <Dashboard /> },
+  { path: "/journey", element: <Journey /> },
+  { path: "/contacts", element: <Contacts /> },
+  { path: "/history", element: <History /> },
+  { path: "/profile", element: <Profile /> },
+];
+
 function App() {
   return (
     <>
@@ -20,57 +29,17 @@ function App() {
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Main Pages */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/journey" element={<Journey />} />
-          <Route path="/contacts" element={<Contacts />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route
-           path="/dashboard"
-           element={
-          <ProtectedRoute>
-          <Dashboard />
-          </ProtectedRoute>
-            }
-            />
-                        <Route
-              path="/journey"
-              element={
-                <ProtectedRoute>
-                  <Journey />
-                </ProtectedRoute>
-              }
-            />
-
+          {/* Main Pages (each path declared once, always protected) */}
+          {protectedPages.map(({ path, element }) => (
             <Route
-              path="/contacts"
-              element={
-                <ProtectedRoute>
-                  <Contacts />
-                </ProtectedRoute>
-              }
+              key={path}
+              path={path}
+              element={<ProtectedRoute>{element}</ProtectedRoute>}
             />
+          ))}
 
-            <Route
-              path="/history"
-              element={
-                <ProtectedRoute>
-                  <History />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-
-
+          {/* Unknown URLs go to the dashboard (or login if logged out) */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
 

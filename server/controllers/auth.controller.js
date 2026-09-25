@@ -14,13 +14,24 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-
-    if (existingUser) {
+    if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "User already exists",
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    // Check if email or phone is already registered (both are unique)
+    const existingUser = await User.findOne({
+      $or: [{ email: email.toLowerCase().trim() }, { phone: phone.trim() }],
+    });
+
+    if (existingUser) {
+      const field =
+        existingUser.email === email.toLowerCase().trim() ? "email" : "phone number";
+      return res.status(400).json({
+        success: false,
+        message: `An account with this ${field} already exists`,
       });
     }
 
@@ -70,12 +81,14 @@ export const loginUser = async (req, res) => {
     }
 
     // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
 
+    // Same message for unknown email and wrong password, so the API does not
+    // reveal which emails have accounts.
     if (!user) {
-      return res.status(404).json({
+      return res.status(401).json({
         success: false,
-        message: "User not found",
+        message: "Invalid email or password",
       });
     }
 
@@ -85,7 +98,7 @@ export const loginUser = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials",
+        message: "Invalid email or password",
       });
     }
 
@@ -100,7 +113,8 @@ export const loginUser = async (req, res) => {
         user: {
             id: user._id,
             name: user.name,
-            email: user.email
+            email: user.email,
+            phone: user.phone,
         }
     });
 

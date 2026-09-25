@@ -18,6 +18,14 @@ const protect = async (req, res, next) => {
       // Get User (without password)
       req.user = await User.findById(decoded.id).select("-password");
 
+      // Token is valid but the account no longer exists
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: "User no longer exists",
+        });
+      }
+
       return next();
     }
 

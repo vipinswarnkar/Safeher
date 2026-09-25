@@ -26,8 +26,6 @@ function Login() {
       password,
     });
 
-    console.log(response.data);
-
     localStorage.setItem("token", response.data.token);
 
     localStorage.setItem(
@@ -58,7 +56,7 @@ function Login() {
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-10">
 
         <h1 className="text-3xl font-bold text-slate-900">
-          Trackhersafe
+          SafeHer
         </h1>
 
         <p className="text-slate-500 mt-2">

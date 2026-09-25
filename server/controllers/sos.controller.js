@@ -8,37 +8,20 @@ export const triggerSOS = async (req, res) => {
   try {
     const { latitude, longitude, message } = req.body;
 
-    // Validation
-    if (!latitude || !longitude) {
+    // Validation (== null so a real coordinate of 0 is still accepted)
+    if (latitude == null || longitude == null) {
       return res.status(400).json({
         success: false,
         message: "Latitude and Longitude are required",
       });
     }
 
-    await sendSOSNotification({
-    contacts,
-    user: req.user,
-    location: {
-        latitude,
-        longitude,
-        mapUrl
-    },
-    journey: activeJourney,
-});
-
-    // Find active journey
+    // Attach the active journey if there is one. SOS must work even when
+    // the user has not started a journey.
     const activeJourney = await Journey.findOne({
       user: req.user._id,
       status: "active",
     });
-
-    if (!activeJourney) {
-      return res.status(404).json({
-        success: false,
-        message: "No active journey found",
-      });
-    }
 
     // Get emergency contacts
     const contacts = await Contact.find({
@@ -55,11 +38,26 @@ export const triggerSOS = async (req, res) => {
     // Create SOS
     const sos = await SOS.create({
       user: req.user._id,
-      journey: activeJourney._id,
+      journey: activeJourney ? activeJourney._id : null,
       latitude,
       longitude,
       message,
     });
+
+    const mapUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+    // Notify contacts only after the SOS is saved, so a notification
+    // failure never loses the alert record.
+    try {
+      await sendSOSNotification({
+        contacts,
+        user: req.user,
+        location: { latitude, longitude, mapUrl },
+        journey: activeJourney,
+      });
+    } catch (notifyError) {
+      console.error("SOS Notification Error:", notifyError);
+    }
 
     return res.status(201).json({
       success: true,
@@ -118,7 +116,7 @@ export const resolveSOS = async (req, res) => {
         status: "resolved",
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 

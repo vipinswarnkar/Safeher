@@ -3,7 +3,8 @@ import Journey from "../models/journey.js";
 // Start a Journey
 export const startJourney = async (req, res) => {
   try {
-    const { source, destination } = req.body;
+    const { source, destination, sourceLocation, destinationLocation } =
+      req.body;
 
     // Validation
     if (!source || !destination) {
@@ -32,6 +33,8 @@ export const startJourney = async (req, res) => {
       user: req.user._id,
       source,
       destination,
+      sourceLocation,
+      destinationLocation,
     });
 
     return res.status(201).json({
@@ -94,7 +97,7 @@ export const endJourney = async (req, res) => {
         endedAt: new Date(),
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 

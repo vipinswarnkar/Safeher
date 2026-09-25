@@ -1,5 +1,14 @@
 import mongoose from "mongoose";
 
+// Reusable lat/lng pair (optional so old journeys still validate)
+const pointSchema = new mongoose.Schema(
+  {
+    latitude: { type: Number },
+    longitude: { type: Number },
+  },
+  { _id: false }
+);
+
 const journeySchema = new mongoose.Schema(
   {
     user: {
@@ -18,6 +27,16 @@ const journeySchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+
+    sourceLocation: {
+      type: pointSchema,
+      default: undefined,
+    },
+
+    destinationLocation: {
+      type: pointSchema,
+      default: undefined,
     },
 
     startedAt: {
