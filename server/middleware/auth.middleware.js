@@ -35,7 +35,10 @@ const protect = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error("Auth Middleware:", error);
+    // Bad or expired tokens are normal (old logins); only log real failures
+    if (error.name !== "JsonWebTokenError" && error.name !== "TokenExpiredError") {
+      console.error("Auth Middleware:", error);
+    }
 
     return res.status(401).json({
       success: false,
