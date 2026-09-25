@@ -65,14 +65,20 @@ export const updateContact = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Only these fields may be changed (never `user`)
+    const updates = {};
+    for (const field of ["name", "phone", "relationship"]) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+
     const contact = await Contact.findOneAndUpdate(
       {
         _id: id,
         user: req.user._id,
       },
-      req.body,
+      updates,
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       }
     );

@@ -8,7 +8,9 @@ export const sendSOSNotification = async ({
   console.log("🚨 SOS NOTIFICATION");
   console.log("User:", user.name);
   console.log("Location:", location.mapUrl);
-  console.log("Journey:", journey.source, "->", journey.destination);
+  if (journey) {
+    console.log("Journey:", journey.source, "->", journey.destination);
+  }
 
   contacts.forEach((contact) => {
     console.log(

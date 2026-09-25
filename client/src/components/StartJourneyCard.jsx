@@ -1,5 +1,6 @@
 import { HiOutlineMapPin } from "react-icons/hi2";
 import { useState , useEffect} from "react";
+import toast from "react-hot-toast";
 import api from "../services/api";
 
 function StartJourneyCard({activeJourney, onJourneyStarted}) {
@@ -16,9 +17,8 @@ function StartJourneyCard({activeJourney, onJourneyStarted}) {
 
   useEffect(() => {
 
-    if (destination.length < 3) {
-
-        setSuggestions([]);
+    // Don't search for short text, or right after the user picked a suggestion
+    if (destination.length < 3 || selectedPlace) {
 
         return;
 
@@ -31,7 +31,7 @@ function StartJourneyCard({activeJourney, onJourneyStarted}) {
             setSearching(true);
 
             const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${destination}&limit=5`
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}&limit=5`
             );
 
             const data = await response.json();
@@ -52,13 +52,17 @@ function StartJourneyCard({activeJourney, onJourneyStarted}) {
 
     return () => clearTimeout(timer);
 
-}, [destination]);
+}, [destination, selectedPlace]);
+
+  // Only show results that match what's typed right now
+  const showSuggestions =
+    !selectedPlace && destination.length >= 3 && suggestions.length > 0;
 
   const handleStartJourney = async () => {
 
    if (!selectedPlace) {
 
-    alert("Please select a destination from the suggestions.");
+    toast.error("Please select a destination from the suggestions.");
 
     return;
 
@@ -68,24 +72,37 @@ function StartJourneyCard({activeJourney, onJourneyStarted}) {
 
         setLoading(true);
 
-        const token = localStorage.getItem("token");
+        // Current position as the journey's start point (optional)
+        let sourceLocation;
+        try {
+            const position = await new Promise((resolve, reject) =>
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 8000,
+                })
+            );
+            sourceLocation = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+            };
+        } catch {
+            sourceLocation = undefined;
+        }
 
-        const response = await api.post(
-            "/journey/start",
-            {
-                source: "Current Location",
-                destination: destination,
+        await api.post("/journey/start", {
+            source: "Current Location",
+            destination: selectedPlace.display_name,
+            sourceLocation,
+            destinationLocation: {
+                latitude: Number(selectedPlace.lat),
+                longitude: Number(selectedPlace.lon),
             },
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            }
-        );
+        });
 
-        console.log(response.data);
+        toast.success("Journey started. Stay safe!");
 
         setDestination("");
+        setSelectedPlace(null);
 
         if (onJourneyStarted) {
             onJourneyStarted();
@@ -95,7 +112,7 @@ function StartJourneyCard({activeJourney, onJourneyStarted}) {
 
             console.log(error.response?.data || error);
 
-            alert(error.response?.data?.message || "Unable to start journey");
+            toast.error(error.response?.data?.message || "Unable to start journey");
 
         } finally {
 
@@ -110,17 +127,9 @@ const handleEndJourney = async () => {
 
     setLoading(true);
 
-    const token = localStorage.getItem("token");
+    await api.patch(`/journey/end/${activeJourney._id}`);
 
-    await api.patch(
-      `/journey/end/${activeJourney._id}`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    toast.success("Journey ended");
 
     if (onJourneyStarted) {
       onJourneyStarted();
@@ -130,7 +139,7 @@ const handleEndJourney = async () => {
 
     console.log(error.response?.data || error);
 
-    alert(error.response?.data?.message || "Unable to end journey");
+    toast.error(error.response?.data?.message || "Unable to end journey");
 
   } finally {
 
@@ -204,7 +213,11 @@ if (activeJourney) {
             type="text"
             placeholder="Where are you going?"
             value={destination}
-            onChange={(e) => setDestination(e.target.value)}
+            onChange={(e) => {
+              setDestination(e.target.value);
+              // Typing again means the earlier pick no longer applies
+              setSelectedPlace(null);
+            }}
             className="
             w-full
             rounded-2xl
@@ -225,7 +238,7 @@ if (activeJourney) {
             </p>
         )}
 
-        {suggestions.length > 0 && (
+        {showSuggestions && (
             <div className="mt-2 bg-white border rounded-2xl shadow max-h-60 overflow-y-auto">
 
                 {suggestions.map((place) => (
@@ -234,10 +247,6 @@ if (activeJourney) {
                         key={place.place_id}
                         type="button"
                       onClick={() => {
-
-                          console.log("Clicked Place");
-
-                          console.log(place);
 
                           setDestination(place.display_name);
 

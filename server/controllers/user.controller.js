@@ -1,5 +1,4 @@
 import User from "../models/user.js";
-import bcrypt from "bcrypt";
 
 // Get Profile
 export const getProfile = async (req, res) => {
@@ -29,16 +28,35 @@ export const updateProfile = async (req, res) => {
 
     const { name, phone } = req.body;
 
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        name,
-        phone,
-      },
-      {
-        new: true,
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (phone !== undefined) updates.phone = phone;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Nothing to update",
+      });
+    }
+
+    if (updates.phone) {
+      const phoneTaken = await User.findOne({
+        phone: updates.phone,
+        _id: { $ne: req.user._id },
+      });
+
+      if (phoneTaken) {
+        return res.status(400).json({
+          success: false,
+          message: "This phone number is already in use",
+        });
       }
-    ).select("-password");
+    }
+
+    const user = await User.findByIdAndUpdate(req.user._id, updates, {
+      returnDocument: "after",
+      runValidators: true,
+    }).select("-password");
 
     return res.status(200).json({
       success: true,
@@ -62,6 +80,20 @@ export const changePassword = async (req, res) => {
   try {
 
     const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Old and new password are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters",
+      });
+    }
 
     const user = await User.findById(req.user._id);
 

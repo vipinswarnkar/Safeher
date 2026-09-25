@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -34,8 +34,33 @@ function ChangeMapView({ center }) {
   return null;
 }
 
-function MapCard() {
-  const [position, setPosition] = useState([19.0760, 72.8777]);
+// When to send a location update to the server:
+// - the user moved at least MIN_DISTANCE_METERS (but not more than once per MIN_GAP_MS), or
+// - HEARTBEAT_MS passed, so a stationary user still shows as "live".
+// Stops the database filling up with duplicate points.
+const MIN_GAP_MS = 5000;
+const HEARTBEAT_MS = 60000;
+const MIN_DISTANCE_METERS = 30;
+
+// Distance between two lat/lng points in meters (haversine formula)
+function distanceInMeters([lat1, lon1], [lat2, lon2]) {
+  const R = 6371000;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function MapCard({ location }) {
+  // Start from the last saved location if we have one, else Mumbai
+  const [position, setPosition] = useState(
+    location ? [location.latitude, location.longitude] : [19.076, 72.8777]
+  );
+
+  const lastSent = useRef({ time: 0, position: null });
 
   useEffect(() => {
 
@@ -48,12 +73,24 @@ function MapCard() {
 
       setPosition([latitude, longitude]);
 
-      console.log("Latitude:", latitude);
-      console.log("Longitude:", longitude);
+      const now = Date.now();
+      const previous = lastSent.current;
+      const elapsed = now - previous.time;
+      const moved =
+        !previous.position ||
+        distanceInMeters(previous.position, [latitude, longitude]) >=
+          MIN_DISTANCE_METERS;
+
+      const shouldSend =
+        (moved && elapsed >= MIN_GAP_MS) || elapsed >= HEARTBEAT_MS;
+
+      if (!shouldSend) {
+        return;
+      }
+
+      lastSent.current = { time: now, position: [latitude, longitude] };
 
       try {
-
-          const token = localStorage.getItem("token");
 
           await api.post(
               "/location/update",
@@ -62,11 +99,6 @@ function MapCard() {
                   longitude,
                   accuracy: location.coords.accuracy,
                   speed: location.coords.speed,
-              },
-              {
-                  headers: {
-                      Authorization: `Bearer ${token}`,
-                  },
               }
           );
 
