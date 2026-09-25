@@ -63,6 +63,10 @@ function JourneyList() {
             </span>
           </div>
 
+          {journey.routeSafetyScore != null && (
+            <p className="text-xs text-slate-500 mt-1">Route safety score: {journey.routeSafetyScore}/100</p>
+          )}
+
           <p className="text-sm text-slate-500 mt-2">
             {formatDateTime(journey.startedAt)}
             {journey.endedAt
@@ -86,7 +90,7 @@ function SOSList() {
     try {
       setResolvingId(id);
       await api.patch(`/sos/resolve/${id}`);
-      toast.success("Marked as safe");
+      toast.success("Marked as safe. Your contacts have been told.");
       reload();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not update alert");

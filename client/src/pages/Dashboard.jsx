@@ -3,8 +3,8 @@ import api from "../services/api";
 
 import DashboardHeader from "../components/DashboardHeader";
 import DashboardStats from "../components/Dashboardstats";
-import SearchBar from "../components/SearchBar";
 import MapCard from "../components/MapCard";
+import SafetyScoreCard from "../components/SafetyScoreCard";
 import StartJourneyCard from "../components/StartJourneyCard";
 import SOSCard from "../components/SOSCard";
 import QuickActions from "../components/QuickActions";
@@ -13,18 +13,15 @@ import BottomNav from "../components/BottomNav";
 function Dashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [position, setPosition] = useState(null);
 
-  // Fetch dashboard data from backend
+  // Refresh after starting/ending a journey or sending an SOS
   const fetchDashboard = async () => {
     try {
       const response = await api.get("/dashboard");
-
       setDashboard(response.data.dashboard);
-
     } catch (error) {
       console.error("Dashboard Error:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -64,35 +61,34 @@ function Dashboard() {
     );
   }
 
+  const lastKnown = position || dashboard.latestLocation;
+
   return (
     <div className="min-h-screen bg-slate-100">
-
       <div className="max-w-md mx-auto px-5 py-6 pb-28 space-y-6">
-
         <DashboardHeader user={dashboard.user} />
+
+        <SafetyScoreCard position={position} compact />
+
+        <MapCard
+          location={dashboard.latestLocation}
+          onPositionChange={setPosition}
+          plannedRoute={dashboard.activeJourney?.plannedRoute}
+          destination={dashboard.activeJourney?.destinationLocation}
+          fitToRoutes={false}
+          height={260}
+        />
+
+        <StartJourneyCard activeJourney={dashboard.activeJourney} onJourneyChanged={fetchDashboard} />
+
+        <SOSCard lastKnownLocation={lastKnown} onSOSSent={fetchDashboard} />
 
         <DashboardStats dashboard={dashboard} />
 
-        <SearchBar />
-
-        <MapCard location={dashboard.latestLocation} />
-
-        <StartJourneyCard
-          activeJourney={dashboard.activeJourney}
-          onJourneyStarted={fetchDashboard}
-        />
-
-        <SOSCard
-          lastKnownLocation={dashboard.latestLocation}
-          onSOSSent={fetchDashboard}
-        />
-
         <QuickActions />
-
       </div>
 
       <BottomNav />
-
     </div>
   );
 }

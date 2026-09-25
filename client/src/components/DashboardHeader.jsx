@@ -1,4 +1,5 @@
-import { HiOutlineBell } from "react-icons/hi2";
+import { Link } from "react-router-dom";
+import { HiOutlineShieldExclamation } from "react-icons/hi2";
 
 function DashboardHeader({ user }) {
   // Greeting based on current time
@@ -31,17 +32,23 @@ function DashboardHeader({ user }) {
 
       {/* Right Section */}
       <div className="flex items-center gap-3">
-        {/* Notification */}
-        <button className="relative w-11 h-11 rounded-full bg-white shadow-md flex items-center justify-center hover:bg-slate-50 transition">
-          <HiOutlineBell className="text-2xl text-slate-700" />
-
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500"></span>
-        </button>
+        {/* Quick link to the SOS page */}
+        <Link
+          to="/sos"
+          className="w-11 h-11 rounded-full bg-red-50 text-red-600 shadow-md flex items-center justify-center hover:bg-red-100 transition"
+          aria-label="Emergency SOS"
+        >
+          <HiOutlineShieldExclamation className="text-2xl" />
+        </Link>
 
         {/* User Avatar */}
-        <div className="w-11 h-11 rounded-full bg-rose-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+        <Link
+          to="/profile"
+          className="w-11 h-11 rounded-full bg-rose-600 flex items-center justify-center text-white font-bold text-lg shadow-md"
+          aria-label="Profile"
+        >
           {user?.name?.charAt(0).toUpperCase() || "U"}
-        </div>
+        </Link>
       </div>
     </div>
   );

@@ -3,13 +3,16 @@ import api from "../services/api";
 
 // Loads data from a GET endpoint.
 // Returns { data, error, loading, reload }.
+// - pass `null` as the url to wait (e.g. until the location is known)
 // - `error` is the axios error (check error.response?.status)
 // - call `reload()` after a change to fetch fresh data
+// - when the url changes, the previous data stays visible until the new data arrives
 export default function useApi(url) {
   const [version, setVersion] = useState(0);
   const [result, setResult] = useState({ data: null, error: null, version: -1 });
 
   useEffect(() => {
+    if (!url) return undefined;
     let cancelled = false;
 
     api
