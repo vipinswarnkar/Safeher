@@ -7,6 +7,7 @@ import Journey from "./pages/Journey";
 import Contacts from "./pages/Contacts";
 import History from "./pages/History";
 import Profile from "./pages/Profile";
+import SOS from "./pages/SOS";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import { Toaster } from "react-hot-toast";
@@ -18,6 +19,7 @@ const protectedPages = [
   { path: "/contacts", element: <Contacts /> },
   { path: "/history", element: <History /> },
   { path: "/profile", element: <Profile /> },
+  { path: "/sos", element: <SOS /> },
 ];
 
 function App() {
